@@ -1,9 +1,27 @@
 from aiogram import Bot, types
-from aiogram.dispatcher import Dispatcher
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import Dispatcher, FSMContext
+from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.utils import executor
 from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from pymongo import MongoClient
+from flask import Flask
+
+app = Flask(__name__)
+
+# Create the client
+client = MongoClient('localhost', 27017)
+
+# Connect to our database
+db = client['zakaz']
+
+# Fetch our series collection
+stol_collection = db['stol']
 
 
+@app.route('/')
+def hello():
+    return 'stol_collection.find()'
 
 TOKEN = "2127256365:AAHEYdBqkcg9piAvxvvRaxewAeSbRaNornE"
 bot = Bot(token=TOKEN)
@@ -29,23 +47,39 @@ keyboard.add(menu_1, menu_2, menu_3, menu_4, menu_5, menu_6, menu_7, menu_8, men
 
 # greet_kb1 = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add([button_yes,button_no])
 
+class reg(StatesGroup):
+    name = State()
+    stol = State()
+
+dp = Dispatcher(bot, storage=MemoryStorage())
+
 @dp.message_handler(commands='start')
-async def send_welcome(msg: types.Message):
+async def send_welcome(msg):
     await msg.answer('Привет! Чтобы продолжить, введи имя и фамилию.')
 
-@dp.message_handler(content_types=['text'], state=None)
-async def get_text_messages(msg: types.Message):
+@dp.message_handler(content_types=['text'])
+async def get_text_messages(msg: types.Message, state: FSMContext):
    if msg.text=='Да':
        await msg.answer('Выбери столик:\n Стол 1. Анненков Павел. Тренды десителетия\n Стол 2. Роман Копосов. Длинные тренды \n Стол 3. Ярослав Савин. Дробление бизнеса\n Стол 4 Дмитрий Мишин. Тренды в маркетинге. \n Стол 5. Дмитрий Зацепин. Тренды в развитии орг структур\n Стол 6. Эдуард Шмидт. Тренды в управлении продажами\n Стол 7. Вероника Шкарбань. Тренды работы с командой. Как вовлекать \n Стол 8. Борис Комендантов. Куда лучше инвестировать в 2022 году\n Стол 9. Киларь Наталья. Как искать таланты и удержать их \n Стол 10. Константин Шихалёв. Забота о здоровье. Тренд или рутина. ',reply_markup=keyboard)
    elif msg.text=='Нет':
        await msg.answer('Введи имя и фамилию еще раз')
    else :
        await msg.answer('Ты '+msg.text+'?',reply_markup=greet_kb1)
+       await state.update_data(name=msg.text)
+
 
 @dp.callback_query_handler(text_contains='menu_')
-async def menu(call: types.CallbackQuery):
+async def menu(call: types.CallbackQuery, state: FSMContext):
+    user_data = await state.get_data()
+    print(user_data['name'])
     if call.data and call.data.startswith("menu_"):
         code = call.data[-1:]
+        print(code)
+        new_stol = {
+            "name": user_data['name'],
+            "stol": int(code)
+        }
+        stol_collection.insert_one(new_stol)
         if code.isdigit():
             code = int(code)
         if code == 1:
@@ -68,10 +102,11 @@ async def menu(call: types.CallbackQuery):
             await call.message.edit_text('Выбран стол 9')
         if code == 10:
             await call.message.edit_text('Выбран стол 10')
-            
+
         else:
             await bot.answer_callback_query(call.id)
 
 
 if __name__ == '__main__':
    executor.start_polling(dp)
+
