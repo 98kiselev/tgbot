@@ -24,7 +24,6 @@ def newEncoder(o):
 
 
 
-
 @app.route('/')
 def hello():
     return json.dumps(list(stol_collection.find()), default=newEncoder)
