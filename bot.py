@@ -1,3 +1,5 @@
+from array import array
+
 from aiogram import Bot, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import Dispatcher, FSMContext
@@ -47,20 +49,40 @@ keyboard.add(menu_1, menu_2, menu_3, menu_4, menu_5, menu_6, menu_7, menu_8, men
 
 # greet_kb1 = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add([button_yes,button_no])
 
+
+
 class reg(StatesGroup):
     name = State()
     stol = State()
 
 dp = Dispatcher(bot, storage=MemoryStorage())
 
+async def send_menu(msg):
+    stols = list(stol_collection.find())
+    stol = ['0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0']
+    for x in range(1, 11):
+        count = sum(1 for i in stols if i['stol'] == x)
+        stol[x] = 'Свободных мест: ' + str(10 - count) + '/10'
+    return await msg.answer('Выбери столик:\n Стол 1. Анненков Павел. Тренды десителетия\n ' + stol[
+        1] + ' \n\n  Стол 2. Роман Копосов. Длинные тренды \n ' + stol[
+                         2] + ' \n\n Стол 3. Ярослав Савин. Дробление бизнеса\n ' + stol[
+                         3] + ' \n\n Стол 4 Дмитрий Мишин. Тренды в маркетинге. \n ' + stol[
+                         4] + ' \n\n Стол 5. Дмитрий Зацепин. Тренды в развитии орг структур\n ' + stol[
+                         5] + ' \n\n Стол 6. Эдуард Шмидт. Тренды в управлении продажами\n ' + stol[
+                         6] + ' \n\n Стол 7. Вероника Шкарбань. Тренды работы с командой. Как вовлекать \n ' + stol[
+                         7] + ' \n\n Стол 8. Борис Комендантов. Куда лучше инвестировать в 2022 году\n ' + stol[
+                         8] + ' \n\n Стол 9. Киларь Наталья. Как искать таланты и удержать их \n ' + stol[
+                         9] + ' \n\n Стол 10. Константин Шихалёв. Забота о здоровье. Тренд или рутина.\n ' + stol[10],
+                     reply_markup=keyboard)
+
 @dp.message_handler(commands='start')
-async def send_welcome(msg):
+async def send_welcome(msg: types.Message):
     await msg.answer('Привет! Чтобы продолжить, введи имя и фамилию.')
 
 @dp.message_handler(content_types=['text'])
 async def get_text_messages(msg: types.Message, state: FSMContext):
    if msg.text=='Да':
-       await msg.answer('Выбери столик:\n Стол 1. Анненков Павел. Тренды десителетия\n Стол 2. Роман Копосов. Длинные тренды \n Стол 3. Ярослав Савин. Дробление бизнеса\n Стол 4 Дмитрий Мишин. Тренды в маркетинге. \n Стол 5. Дмитрий Зацепин. Тренды в развитии орг структур\n Стол 6. Эдуард Шмидт. Тренды в управлении продажами\n Стол 7. Вероника Шкарбань. Тренды работы с командой. Как вовлекать \n Стол 8. Борис Комендантов. Куда лучше инвестировать в 2022 году\n Стол 9. Киларь Наталья. Как искать таланты и удержать их \n Стол 10. Константин Шихалёв. Забота о здоровье. Тренд или рутина. ',reply_markup=keyboard)
+        await send_menu(msg)
    elif msg.text=='Нет':
        await msg.answer('Введи имя и фамилию еще раз')
    else :
@@ -74,34 +96,22 @@ async def menu(call: types.CallbackQuery, state: FSMContext):
     print(user_data['name'])
     if call.data and call.data.startswith("menu_"):
         code = call.data[-1:]
-        print(code)
-        new_stol = {
-            "name": user_data['name'],
-            "stol": int(code)
-        }
-        stol_collection.insert_one(new_stol)
+
+
         if code.isdigit():
             code = int(code)
-        if code == 1:
-            await call.message.edit_text('Выбран стол 1')
-        if code == 2:
-            await call.message.edit_text('Выбран стол 2')
-        if code == 3:
-            await call.message.edit_text('Выбран стол 3')
-        if code == 4:
-            await call.message.edit_text('Выбран стол 4')
-        if code == 5:
-            await call.message.edit_text('Выбран стол 5')
-        if code == 6:
-            await call.message.edit_text('Выбран стол 6')
-        if code == 7:
-            await call.message.edit_text('Выбран стол 7')
-        if code == 8:
-            await call.message.edit_text('Выбран стол 8')
-        if code == 9:
-            await call.message.edit_text('Выбран стол 9')
-        if code == 10:
-            await call.message.edit_text('Выбран стол 10')
+        if 11 > code > 0:
+            stols = list(stol_collection.find({"stol":code}))
+            if len(stols) < 10:
+                new_stol = {
+                    "name": user_data['name'],
+                    "stol": code
+                }
+                stol_collection.insert_one(new_stol)
+                await call.message.edit_text('Выбран стол ' + str(code))
+            else:
+                await call.message.edit_text('Мест нет')
+                await send_menu(call.message)
 
         else:
             await bot.answer_callback_query(call.id)
